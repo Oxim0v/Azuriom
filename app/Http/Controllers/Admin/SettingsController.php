@@ -26,7 +26,7 @@ class SettingsController extends Controller
      *
      * @var array
      */
-    private $mailEncryptionTypes = [
+    private array $mailEncryptionTypes = [
         'tls' => 'TLS',
         'ssl' => 'SSL',
     ];
@@ -36,7 +36,7 @@ class SettingsController extends Controller
      *
      * @var array
      */
-    private $mailMailers = [
+    private array $mailMailers = [
         'smtp' => 'SMTP',
         'sendmail' => 'Sendmail',
     ];
@@ -46,7 +46,7 @@ class SettingsController extends Controller
      *
      * @var array
      */
-    private $hashAlgorithms = [
+    private array $hashAlgorithms = [
         'bcrypt' => 'Bcrypt',
         'argon' => 'Argon2i',
         'argon2id' => 'Argon2id',
@@ -107,6 +107,7 @@ class SettingsController extends Controller
             'money' => setting('money'),
             'siteKey' => setting('site-key'),
             'userMoneyTransfer' => setting('users.money_transfer'),
+            'postsWebhook' => setting('posts_webhook'),
         ]);
     }
 
@@ -133,6 +134,7 @@ class SettingsController extends Controller
             'background' => ['nullable', 'exists:images,file'],
             'money' => ['required', 'string', 'max:15'],
             'site-key' => ['nullable', 'string', 'size:50'],
+            'posts_webhook' => ['nullable', 'url'],
         ]), [
             'user_money_transfer' => $request->filled('user_money_transfer'),
             'url' => rtrim($request->input('url'), '/'), // Remove trailing end slash
@@ -168,7 +170,7 @@ class SettingsController extends Controller
         $hash = array_keys($this->hashAlgorithms);
 
         $this->validate($request, [
-            'captcha' => ['nullable', 'in:recaptcha,hcaptcha'],
+            'captcha' => ['nullable', 'in:recaptcha,hcaptcha,turnstile'],
             'site_key' => ['required_with:captcha', 'max:50'],
             'secret_key' => ['required_with:captcha', 'max:50'],
             'hash' => [
@@ -200,7 +202,8 @@ class SettingsController extends Controller
 
         ActionLog::log('settings.updated');
 
-        return redirect()->route('admin.settings.auth')->with('success', trans('admin.settings.updated'));
+        return redirect()->route('admin.settings.auth')
+            ->with('success', trans('admin.settings.updated'));
     }
 
     public function performance()
@@ -264,7 +267,7 @@ class SettingsController extends Controller
     {
         return view('admin.settings.seo', [
             'homeMessage' => setting('home_message'),
-            'welcomePopup' => setting('welcome_alert'),
+            'welcomeAlert' => setting('welcome_alert'),
         ]);
     }
 
@@ -279,35 +282,37 @@ class SettingsController extends Controller
     public function updateSeo(Request $request)
     {
         $this->validate($request, [
-            'home-message' => ['nullable', 'string'],
-            'welcome-popup' => ['required_with:enable_welcome_popup', 'nullable', 'string'],
+            'home_message' => ['nullable', 'string'],
+            'welcome_alert' => ['required_with:enable_welcome_alert', 'nullable', 'string'],
         ]);
 
-        $alert = $request->filled('enable_welcome_popup')
-            ? $request->input('welcome-popup')
+        $alert = $request->filled('enable_welcome_alert')
+            ? $request->input('welcome_alert')
             : null;
 
         Setting::updateSettings([
-            'home_message' => $request->input('home-message'),
+            'home_message' => $request->input('home_message'),
             'welcome_alert' => $alert,
         ]);
 
         ActionLog::log('settings.updated');
 
-        return redirect()->route('admin.settings.seo')->with('success', trans('admin.settings.updated'));
+        return redirect()->route('admin.settings.seo')
+            ->with('success', trans('admin.settings.updated'));
     }
 
-    public function auth()
+    public function auth(Request $request)
     {
         return view('admin.settings.authentification', [
             'conditions' => setting('conditions'),
+            'userDelete' => setting('user.delete'),
             'register' => setting('register', true),
-            'authApi' => setting('auth-api', false),
+            'authApi' => setting('auth_api', false),
             'hashAlgorithms' => $this->hashAlgorithms,
             'currentHash' => config('hashing.driver'),
             'captchaType' => old('captcha', setting('captcha.type')),
             'force2fa' => setting('admin.force_2fa'),
-            'canForce2fa' => auth()->user()->hasTwoFactorAuth(),
+            'canForce2fa' => $request->user()->hasTwoFactorAuth(),
         ]);
     }
 
@@ -317,14 +322,16 @@ class SettingsController extends Controller
             'conditions' => ['nullable', 'url', 'max:150'],
         ]) + [
             'register' => $request->filled('register'),
-            'auth-api' => $request->filled('auth-api'),
+            'auth_api' => $request->filled('auth_api'),
+            'user.delete' => $request->filled('user_delete'),
         ];
 
         Setting::updateSettings($settings);
 
         ActionLog::log('settings.updated');
 
-        return redirect()->route('admin.settings.auth')->with('success', trans('admin.settings.updated'));
+        return redirect()->route('admin.settings.auth')
+            ->with('success', trans('admin.settings.updated'));
     }
 
     /**
@@ -378,16 +385,25 @@ class SettingsController extends Controller
 
         ActionLog::log('settings.updated');
 
-        return redirect()->route('admin.settings.mail')->with('success', trans('admin.settings.updated'));
+        return redirect()->route('admin.settings.mail')
+            ->with('success', trans('admin.settings.updated'));
     }
 
     public function sendTestMail(Request $request)
     {
+        if ($request->user()->email === null) {
+            return response()->json([
+                'message' => trans('admin.settings.mail.missing'),
+            ], 400);
+        }
+
         try {
             $request->user()->notify(new TestMail());
         } catch (Exception $e) {
             return response()->json([
-                'message' => trans('messages.status.error', ['error' => $e->getMessage()]),
+                'message' => trans('messages.status.error', [
+                    'error' => $e->getMessage(),
+                ]),
             ], 500);
         }
 
@@ -419,32 +435,34 @@ class SettingsController extends Controller
     public function updateMaintenance(Request $request)
     {
         $this->validate($request, [
-            'maintenance-message' => ['nullable', 'string'],
+            'maintenance_message' => ['nullable', 'string'],
         ]);
 
-        $paths = $request->filled('is_global') ? null : array_filter($request->input('paths'));
+        $paths = $request->filled('is_global')
+            ? null
+            : array_filter($request->input('paths', []));
 
         Setting::updateSettings([
-            'maintenance.enabled' => $request->filled('maintenance-status'),
-            'maintenance.message' => $request->input('maintenance-message'),
+            'maintenance.enabled' => $request->filled('maintenance_status'),
+            'maintenance.message' => $request->input('maintenance_message'),
             'maintenance.paths' => empty($paths) ? null : $paths,
         ]);
 
-        return redirect()->route('admin.settings.maintenance')->with('success', trans('admin.settings.updated'));
+        return redirect()->route('admin.settings.maintenance')
+            ->with('success', trans('admin.settings.updated'));
     }
 
     protected function getAvailableLocales()
     {
-        return $this->getAvailableLocaleCodes()->mapWithKeys(function (string $file) {
-            return [$file => trans('messages.lang', [], $file)];
-        });
+        return $this->getAvailableLocaleCodes()->mapWithKeys(fn (string $file) => [
+            $file => trans('messages.lang', [], $file),
+        ]);
     }
 
     protected function getAvailableLocaleCodes()
     {
-        return collect(File::directories($this->app->langPath()))->map(function (string $path) {
-            return basename($path);
-        });
+        return collect(File::directories($this->app->langPath()))
+            ->map(fn (string $path) => basename($path));
     }
 
     protected function isHashSupported(string $algo)

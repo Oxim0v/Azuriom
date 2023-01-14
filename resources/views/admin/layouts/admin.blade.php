@@ -20,8 +20,7 @@
     @stack('scripts')
 
     <!-- Fonts -->
-    <link rel="dns-prefetch" href="//fonts.gstatic.com">
-    <link href="https://fonts.googleapis.com/css?family=Inter:300,400,600,800&display=swap" rel="stylesheet">
+    <link href="https://fonts.bunny.net/css?family=Inter:300,400,600,800&display=swap" rel="stylesheet">
     <link href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.css') }}" rel="stylesheet">
 
     <!-- Styles -->
@@ -346,8 +345,8 @@
                                             <a href="{{ $notification->link ? url($notification->link) : '#' }}" class="list-group-item">
                                                 <div class="row g-0 align-items-center">
                                                     <div class="col-2 text-{{ $notification->level }}">
-                                                        <span class="d-inline-block rounded-circle border border-{{ $notification->level }}">
-                                                            <i class="bi bi-{{ $notification->icon() }} m-2"></i>
+                                                        <span class="d-inline-block rounded-circle p-1 border border-{{ $notification->level }}">
+                                                            <i class="bi bi-{{ $notification->icon() }} mx-1"></i>
                                                         </span>
                                                     </div>
                                                     <div class="col-10">
@@ -379,14 +378,14 @@
 
                         <li class="nav-item">
                             <a href="{{ route('profile.theme') }}" class="nav-icon" data-route="theme">
-                                <i class="bi bi-{{ dark_theme() ? 'sun' : 'moon' }} small" title="{{ trans('messages.theme.'.(dark_theme() ? 'light' : 'dark')) }}" data-bs-toggle="tooltip"></i>
+                                <i class="bi bi-{{ dark_theme() ? 'sun' : 'moon-stars' }} small" title="{{ trans('messages.theme.'.(dark_theme() ? 'light' : 'dark')) }}" data-bs-toggle="tooltip"></i>
                             </a>
                         </li>
 
                         <div class="topbar-divider d-none d-sm-block"></div>
 
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle d-none d-sm-inline-block" href="#" data-bs-toggle="dropdown" aria-expanded="false">
+                            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" aria-expanded="false">
                                 <img class="avatar img-fluid rounded me-1" src="{{ auth()->user()->getAvatar() }}" alt="Avatar">
                                 <span class="me-2 d-none d-lg-inline text-gray-600 small">{{ Auth::user()->name }}</span>
                             </a>

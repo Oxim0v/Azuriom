@@ -26,11 +26,13 @@ class ChartsTest extends TestCase
             User::factory()->create(['created_at' => $date]);
         }
 
-        $expected = collect([0, 0, 1, 0, 3, 0, 0, 1])->mapWithKeys(function (int $count, int $i) {
-            return [format_date(today()->subDays(7 - $i)) => $count];
-        })->all();
+        $expected = collect([0, 0, 1, 0, 3, 0, 0, 1])
+            ->mapWithKeys(fn (int $count, int $i) => [
+                format_date(today()->subDays(7 - $i)) => $count,
+            ])
+            ->all();
 
-        $this->assertSame($expected, Charts::countByDays(User::query())->all());
+        $this->assertEquals($expected, Charts::countByDays(User::query())->all());
     }
 
     public function testMonthlyChart()
@@ -50,10 +52,12 @@ class ChartsTest extends TestCase
             User::factory()->create(['created_at' => $date]);
         }
 
-        $expected = collect([1, 0, 2, 0, 1, 1])->mapWithKeys(function (int $count, int $i) {
-            return [today()->subMonthsWithNoOverflow(5 - $i)->translatedFormat('F Y') => $count];
-        })->all();
+        $expected = collect([1, 0, 2, 0, 1, 1])
+            ->mapWithKeys(fn (int $count, int $i) => [
+                today()->subMonthsWithNoOverflow(5 - $i)->translatedFormat('F Y') => $count,
+            ])
+            ->all();
 
-        $this->assertSame($expected, Charts::countByMonths(User::query(), null, 6)->all());
+        $this->assertEquals($expected, Charts::countByMonths(User::query(), null, 6)->all());
     }
 }

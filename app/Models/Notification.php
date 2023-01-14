@@ -24,6 +24,8 @@ class Notification extends Model
 {
     use HasUuidKey;
 
+    public const LEVELS = ['info', 'success', 'warning', 'danger'];
+
     /**
      * The attributes that are mass assignable.
      *
@@ -49,9 +51,9 @@ class Notification extends Model
      */
     protected $icons = [
         'info' => 'bell',
-        'warning' => 'exclamation',
+        'warning' => 'exclamation-octagon',
         'danger' => 'exclamation-triangle',
-        'success' => 'check',
+        'success' => 'check-lg',
     ];
 
     /**
@@ -88,7 +90,7 @@ class Notification extends Model
     public function markAsRead()
     {
         if ($this->read_at === null) {
-            $this->update(['read_at' => now()]);
+            $this->update(['read_at' => $this->freshTimestamp()]);
         }
     }
 

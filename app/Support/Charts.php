@@ -21,7 +21,8 @@ class Charts
 
     public static function aggregate(Builder $query, string $function, string $column, string $group)
     {
-        return $query->select($group, DB::raw("{$function}({$query->getGrammar()->wrap($column)}) as aggregate"))
+        return $query->withoutEagerLoads()
+            ->select($group, DB::raw("{$function}({$query->getGrammar()->wrap($column)}) as aggregate"))
             ->groupBy($group)
             ->get()
             ->pluck('aggregate', $group);
@@ -42,9 +43,9 @@ class Charts
         $start = today()->subDays($days);
 
         return static::rawAggregateByDays($query, $start, $function, $group, $column)
-            ->mapWithKeys(function ($value, string $date) {
-                return [format_date(Carbon::createFromFormat('!Y-m-d', $date)) => $value];
-            });
+            ->mapWithKeys(fn ($value, string $date) => [
+                format_date(Carbon::createFromFormat('!Y-m-d', $date)) => $value,
+            ]);
     }
 
     public static function rawAggregateByDays(Builder $query, Carbon $start, string $function, string $group, ?string $column)
@@ -64,7 +65,8 @@ class Charts
         $driver = $query->getConnection()->getDriverName();
         $dateCast = $driver !== 'sqlsrv' ? "date({$sqlColumn})" : "CAST({$sqlColumn} as date)";
 
-        $results = $query->select(DB::raw("{$dateCast} as date, {$function}({$sqlGroupColumn}) as aggregate"))
+        $results = $query->withoutEagerLoads()
+            ->select(DB::raw("{$dateCast} as date, {$function}({$sqlGroupColumn}) as aggregate"))
             ->where($column, '>', $start)
             ->groupBy($driver !== 'sqlsrv' ? 'date' : DB::raw($dateCast))
             ->orderBy('date')
@@ -112,7 +114,8 @@ class Charts
         $rawQuery = static::getDatabaseRawQuery($driver, $query->getGrammar()->wrap($column));
         $sqlGroupColumn = $query->getGrammar()->wrap($group);
 
-        $results = $query->select(DB::raw("{$rawQuery} as date, {$function}({$sqlGroupColumn}) as aggregate"))
+        $results = $query->withoutEagerLoads()
+            ->select(DB::raw("{$rawQuery} as date, {$function}({$sqlGroupColumn}) as aggregate"))
             ->where($column, '>', $start)
             ->groupBy($driver !== 'sqlsrv' ? 'date' : DB::raw($rawQuery))
             ->orderBy('date')

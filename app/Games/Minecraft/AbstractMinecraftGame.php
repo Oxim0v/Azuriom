@@ -6,7 +6,6 @@ use Azuriom\Games\Game;
 use Azuriom\Games\Minecraft\Servers\AzLink;
 use Azuriom\Games\Minecraft\Servers\Ping;
 use Azuriom\Games\Minecraft\Servers\Rcon;
-use Azuriom\Socialite\Minecraft\MinecraftProvider;
 use Azuriom\Socialite\Xbox\XboxProvider;
 use Illuminate\Http\Exceptions\HttpResponseException;
 
@@ -16,13 +15,13 @@ abstract class AbstractMinecraftGame extends Game
     {
         XboxProvider::$notFoundCallback = function () {
             return new HttpResponseException(
-                redirect()->home()->with('error', trans('game.minecraft.missing'))
+                redirect()->route('home')->with('error', trans('game.minecraft.missing'))
             );
         };
 
-        MinecraftProvider::$notFoundCallback = function () {
+        XboxProvider::$childCallback = function () {
             return new HttpResponseException(
-                redirect()->home()->with('error', trans('game.minecraft.missing'))
+                redirect()->route('home')->with('error', trans('game.minecraft.child'))
             );
         };
     }

@@ -21,12 +21,14 @@
             <span class="invalid-feedback" role="alert"><strong>{{ $message }}</strong></span>
             @enderror
 
-            <small class="form-text text-danger mb-3">{{ trans('install.game.warn') }}</small>
+            <p class="form-text text-danger">
+                <i class="bi bi-exclamation-triangle"></i> {{ trans('install.game.warn') }}
+            </p>
         </div>
 
-        <h3>{{ trans('install.game.user.title') }}</h3>
-
         <div data-oauth="1">
+            <h3>{{ trans('install.game.user.title') }}</h3>
+
             <div class="mb-3">
                 <label class="form-label" for="uuid">Minecraft UUID</label>
 
@@ -39,6 +41,8 @@
         </div>
 
         <div data-oauth="0">
+            <h3>{{ trans('install.game.user.title') }}</h3>
+
             <div class="mb-3">
                 <label class="form-label" for="name">{{ trans('install.game.user.name') }}</label>
 
@@ -77,6 +81,8 @@
         </div>
     @else
         <div data-game="mc-bedrock">
+            <h3>{{ trans('install.game.user.title') }}</h3>
+
             <div class="mb-3">
                 <label class="form-label" for="xuid">Xbox Live XUID</label>
 

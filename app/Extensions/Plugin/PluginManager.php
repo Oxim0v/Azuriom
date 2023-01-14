@@ -15,6 +15,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
@@ -167,7 +168,6 @@ class PluginManager extends ExtensionManager
     public function findPluginsDescriptions()
     {
         $directories = $this->files->directories($this->pluginsPath);
-
         $plugins = [];
 
         foreach ($directories as $dir) {
@@ -192,7 +192,6 @@ class PluginManager extends ExtensionManager
     public function findDescription(string $plugin)
     {
         $path = $this->path($plugin, 'plugin.json');
-
         $json = $this->getJson($path);
 
         if ($json === null) {
@@ -204,7 +203,8 @@ class PluginManager extends ExtensionManager
             return null;
         }
 
-        $json->composer = $this->getJson($this->path($plugin, 'composer.json'), true);
+        $composerPath = $this->path($plugin, 'composer.json');
+        $json->composer = $this->getJson($composerPath, true);
 
         return $json;
     }
@@ -216,11 +216,9 @@ class PluginManager extends ExtensionManager
      */
     public function findPlugins()
     {
-        $directories = $this->files->directories($this->pluginsPath);
+        $paths = $this->files->directories($this->pluginsPath);
 
-        return array_map(function ($dir) {
-            return $this->files->basename($dir);
-        }, $directories);
+        return array_map(fn ($dir) => $this->files->basename($dir), $paths);
     }
 
     /**
@@ -235,8 +233,9 @@ class PluginManager extends ExtensionManager
         }
 
         $this->files->deleteDirectory($this->publicPath($plugin));
-
         $this->files->deleteDirectory($this->path($plugin));
+
+        Cache::forget('updates_counts');
     }
 
     /**
@@ -262,16 +261,20 @@ class PluginManager extends ExtensionManager
 
     public function enable(string $plugin)
     {
-        $this->setPluginEnabled($plugin, true);
+        if (! $this->setPluginEnabled($plugin, true)) {
+            return false;
+        }
 
         $this->runMigrations($plugin);
 
         $this->createAssetsLink($plugin);
+
+        return true;
     }
 
     public function disable(string $plugin)
     {
-        $this->setPluginEnabled($plugin, false);
+        return $this->setPluginEnabled($plugin, false);
     }
 
     public function hasRequirements(string $plugin)
@@ -370,20 +373,18 @@ class PluginManager extends ExtensionManager
     public function cachePlugins(array $enabledPlugins = null)
     {
         if ($enabledPlugins === null) {
-            $enabledPlugins = $this->getJson($this->pluginsPath('plugins.json'), true) ?? [];
+            $pluginsJsonPath = $this->pluginsPath('plugins.json');
+            $enabledPlugins = $this->getJson($pluginsJsonPath, true) ?? [];
         }
 
-        $plugins = $this->findPluginsDescriptions()->filter(function ($desc, $plugin) use ($enabledPlugins) {
-            return in_array($plugin, $enabledPlugins, true);
-        });
+        $plugins = $this->findPluginsDescriptions()
+            ->filter(fn ($desc, $plugin) => in_array($plugin, $enabledPlugins, true));
 
         if ($plugins->isEmpty() && app()->runningInConsole()) {
             return $plugins;
         }
 
-        $pluginsCache = $plugins->map(function ($plugin) {
-            return (array) $plugin;
-        })->all();
+        $pluginsCache = $plugins->map(fn ($plugin) => (array) $plugin)->all();
 
         if (is_installed()) {
             $this->files->put($this->getCachedPluginsPath(), '<?php return '.var_export($pluginsCache, true).';');
@@ -404,9 +405,7 @@ class PluginManager extends ExtensionManager
         $plugins = app(UpdateManager::class)->getPlugins($force);
 
         $installedPlugins = $this->findPluginsDescriptions()
-            ->filter(function ($plugin) {
-                return isset($plugin->apiId);
-            });
+            ->filter(fn ($plugin) => isset($plugin->apiId));
 
         return collect($plugins)
             ->filter(function ($plugin) use ($installedPlugins) {
@@ -433,7 +432,7 @@ class PluginManager extends ExtensionManager
         });
     }
 
-    public function install($pluginId)
+    public function install($pluginId, string $version = null)
     {
         $updateManager = app(UpdateManager::class);
 
@@ -444,16 +443,19 @@ class PluginManager extends ExtensionManager
         }
 
         $pluginInfo = $plugins[$pluginId];
-
         $plugin = $pluginInfo['extension_id'];
-
         $pluginDir = $this->path($plugin);
+
+        if ($version !== null) {
+            $baseUrl = Str::beforeLast($pluginInfo['url'], '/updates/');
+            $pluginInfo['url'] = $baseUrl.'/download/'.$version;
+        }
 
         if (! $this->files->isDirectory($pluginDir)) {
             $this->files->makeDirectory($pluginDir);
         }
 
-        $updateManager->download($pluginInfo, 'plugins/');
+        $updateManager->download($pluginInfo, 'plugins/', $version === null);
         $updateManager->extract($pluginInfo, $pluginDir, 'plugins/');
 
         $this->createAssetsLink($plugin);
@@ -475,12 +477,10 @@ class PluginManager extends ExtensionManager
         try {
             $plugins = $this->files->getRequire($this->getCachedPluginsPath());
 
-            $this->plugins = array_map(function ($array) {
-                return (object) $array;
-            }, $plugins);
+            $this->plugins = array_map(fn ($array) => (object) $array, $plugins);
 
             return $this->plugins;
-        } catch (FileNotFoundException $e) {
+        } catch (FileNotFoundException) {
             $this->plugins = $this->cachePlugins()->all();
 
             return $this->plugins;
@@ -531,7 +531,13 @@ class PluginManager extends ExtensionManager
 
     protected function runMigrations(string $plugin)
     {
-        app('migrator')->run([$this->path($plugin, 'database/migrations')]);
+        try {
+            app('migrator')->run([$this->path($plugin, 'database/migrations')]);
+        } catch (Throwable $t) {
+            $this->setPluginEnabled($plugin, false);
+
+            throw $t;
+        }
     }
 
     protected function createAssetsLink(string $plugin)

@@ -2,11 +2,14 @@
 
 namespace Azuriom\Http\Controllers\Api;
 
+use Azuriom\Games\Steam\SteamID;
 use Azuriom\Http\Controllers\Controller;
+use Azuriom\Http\Resources\ServerCollection;
 use Azuriom\Models\Role;
 use Azuriom\Models\Server;
 use Azuriom\Models\ServerCommand;
 use Azuriom\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
@@ -14,58 +17,70 @@ use Illuminate\Support\Facades\Hash;
 
 class ServerController extends Controller
 {
+    public function index()
+    {
+        $serverId = (int) setting('servers.default');
+        $servers = Server::where('home_display', true)
+            ->when($serverId, function (Builder $query) use ($serverId) {
+                $query->orWhere('id', $serverId);
+            })
+            ->get();
+
+        $servers = $servers->where('home_display', true);
+        $server = $servers->first(fn (Server $server) => $server->id === $serverId);
+
+        return new ServerCollection($servers, $server);
+    }
+
     public function status()
     {
-        return response()->noContent();
+        return response()->noContent(headers: [
+            'AzLink-Status' => 'Success',
+        ]);
     }
 
     public function fetch(Request $request)
     {
         $server = Server::find($request->input('server-id'));
-        $players = Arr::pluck($request->json('players', []), 'name', 'uuid');
-        $cpuUsage = $request->json('system.cpu');
-        $ramUsage = $request->json('system.ram');
-        $tps = $request->json('worlds.tps');
+        $uidKey = $request->json('platform.type') === 'GMOD';
+        $rawPlayers = $request->json('players', []);
+        $maxPlayers = $request->json('maxPlayers');
 
-        $server->updateData([
-            'players' => count($players),
-            'max_players' => $request->json('maxPlayers'),
-            'cpu' => $cpuUsage >= 0 ? $cpuUsage : null,
-            'ram' => $ramUsage >= 0 ? (int) $ramUsage : null,
-            'tps' => $tps >= 0 ? round($tps, 2) : null,
-            'loaded_chunks' => $request->json('worlds.chunks'),
-            'entities' => $request->json('worlds.entities'),
-        ], $request->json('full', false));
+        $players = $uidKey
+            ? Arr::pluck($rawPlayers, 'uid')
+            : Arr::pluck($rawPlayers, 'name', 'uuid');
 
-        $users = User::whereIn('name', $players)->get();
+        $server->updateData(array_merge(
+            ['players' => count($players), 'max_players' => $maxPlayers],
+            $request->json('system', []),
+            $request->json('worlds', []),
+        ), $request->json('full', false));
+
+        $users = User::whereIn($uidKey ? 'game_id' : 'name', $players)->get();
         $commands = $server->commands()
             ->with('user')
             ->whereIn('user_id', $users->modelKeys())
             ->orWhere('need_online', false)
             ->limit(100)
             ->get();
-        $usersData = $users->map(function (User $user) {
-            return [
-                'id' => $user->id,
-                'name' => $user->name,
-                'uid' => $user->game_id,
-                'money' => $user->money,
-            ];
-        });
 
         if (! $commands->isEmpty()) {
             ServerCommand::whereIn('id', $commands->modelKeys())->delete();
 
-            $commands = $commands->groupBy('user.name')
-                ->map(function (Collection $serverCommands) {
-                    return $serverCommands->pluck('command');
-                });
+            $commands = $uidKey
+                ? $this->mapCommands($commands)
+                : $this->mapLegacyCommands($commands);
         }
 
         return response()->json([
             'commands' => $commands,
-            'users' => $usersData,
             'retry' => $commands->count() > 100,
+            'users' => $users->map(fn (User $user) => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'uid' => $user->game_id,
+                'money' => $user->money,
+            ]),
         ]);
     }
 
@@ -111,5 +126,28 @@ class ServerController extends Controller
             ->update(Arr::only($data, 'email'));
 
         return response()->noContent();
+    }
+
+    protected function mapLegacyCommands(Collection $commands)
+    {
+        return $commands->groupBy('user.name')
+            ->map(function (Collection $serverCommands) {
+                return $serverCommands->pluck('command');
+            });
+    }
+
+    protected function mapCommands(Collection $commands)
+    {
+        return $commands->groupBy('user.name')
+            ->map(function (Collection $serverCommands) {
+                $user = $serverCommands->first()->user;
+
+                return [
+                    'name' => $user->name,
+                    'uid' => $user->game_id,
+                    'steamid_32' => SteamID::convertTo32($user->game_id),
+                    'values' => $serverCommands->pluck('command'),
+                ];
+            });
     }
 }

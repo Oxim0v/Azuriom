@@ -6,7 +6,7 @@
 
         <div class="text-center">
             <p class="text-success">
-                <i class="bi bi-check-lg"></i> {{ trans('install.requirements.success') }}
+                <i class="bi bi-check2-circle"></i> {{ trans('install.requirements.success') }}
             </p>
 
             <a href="{{ route('install.database') }}" class="btn btn-primary rounded-pill mx-1">
@@ -39,7 +39,7 @@
                                     {{ $v = $phpVersion }}
                                 </span>
                             @elseif($requirementStatus)
-                                <i class="bi-check-lg text-success float-right"></i>
+                                <i class="bi-check2-circle text-success float-right"></i>
                             @else
                                 <i class="bi bi-x-lg text-danger float-right"></i>
                             @endif
@@ -51,7 +51,7 @@
                                 @if(Str::startsWith($requirement, 'extension-'))
                                     @lang('install.requirements.help.extension', [
                                         'extension' => Str::replace('extension-', '', $requirement),
-                                        'command' => "apt install curl php{$v}-mysql php{$v}-pgsql php{$v}-sqlite php{$v}-bcmath php{$v}-mbstring php{$v}-xml php{$v}-curl php{$v}-zip php{$v}-gd",
+                                        'command' => "apt install curl php{$v}-mysql php{$v}-pgsql php{$v}-sqlite3 php{$v}-bcmath php{$v}-mbstring php{$v}-xml php{$v}-curl php{$v}-zip php{$v}-gd",
                                     ])
                                 @elseif(Str::startsWith($requirement, 'function-'))
                                     @lang('install.requirements.help.function')
@@ -68,7 +68,7 @@
         </div>
 
         <div class="text-center">
-            <a href="{{ route('home') }}" class="btn btn-primary mx-1">
+            <a href="{{ route('home') }}" class="btn btn-primary rounded-pill mx-1">
                 {{ trans('install.requirements.refresh') }} <i class="bi bi-arrow-clockwise"></i>
             </a>
         </div>

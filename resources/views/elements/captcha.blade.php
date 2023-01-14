@@ -1,6 +1,6 @@
 @if(setting('captcha.type') === 'recaptcha')
     @push('scripts')
-        <script src="https://www.google.com/recaptcha/api.js?hl={{ app()->getLocale() }}" async defer></script>
+        <script src="https://www.recaptcha.net/recaptcha/api.js?hl={{ app()->getLocale() }}" async defer></script>
     @endpush
 
     @push('footer-scripts')
@@ -47,4 +47,10 @@
     @endpush
 
     <div class="h-captcha mb-2 @if($center ?? false) text-center @endif" data-sitekey="{{ setting('captcha.site_key') }}" @if($dark ?? false) data-theme="dark" @endif></div>
+@elseif(setting('captcha.type') === 'turnstile')
+    @push('scripts')
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    @endpush
+
+    <div class="cf-turnstile mb-2 @if($center ?? false) text-center @endif" data-sitekey="{{ setting('captcha.site_key') }}" data-theme="{{ ($dark ?? false) ? 'dark' : 'light' }}"></div>
 @endif

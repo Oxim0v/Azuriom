@@ -11,7 +11,6 @@ use Azuriom\Models\User;
 use Azuriom\Support\Charts;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class AdminController extends Controller
 {
@@ -20,7 +19,7 @@ class AdminController extends Controller
      *
      * @var \Illuminate\Contracts\Foundation\Application
      */
-    private $app;
+    private Application $app;
 
     /**
      * Create a new controller instance.
@@ -36,16 +35,17 @@ class AdminController extends Controller
     {
         $updates = $this->app->make(UpdateManager::class);
         $newVersion = $updates->hasUpdate() ? $updates->getLastVersion() : null;
+        $userCount = User::whereNull('deleted_at')->count();
 
         return view('admin.dashboard', [
             'secure' => $request->secure() || ! $this->app->isProduction(),
-            'userCount' => User::whereNull('deleted_at')->count(),
+            'userCount' => $userCount,
             'postCount' => Post::count(),
             'pageCount' => Page::count(),
             'imageCount' => Image::count(),
             'newUsersPerMonths' => Charts::countByMonths(User::whereNull('deleted_at')),
             'newUsersPerDays' => Charts::countByDays(User::whereNull('deleted_at')),
-            'activeUsers' => $this->getActiveUsers(),
+            'activeUsers' => $this->getActiveUsers($userCount),
             'newVersion' => $newVersion,
             'apiAlerts' => $updates->getApiAlerts(),
         ]);
@@ -56,28 +56,23 @@ class AdminController extends Controller
         return response()->view('admin.errors.404', [], 404);
     }
 
-    protected function getActiveUsers()
+    protected function getActiveUsers(int $totalUsers)
     {
-        $condition = match (config('database.default')) {
-            'sqlsrv' => 'DATEDIFF(day, [last_login_at], GETDATE())',
-            'pgsql' => 'NOW()::date - last_login_at::date',
-            'sqlite' => 'julianday() - julianday(last_login_at)',
-            default => 'DATEDIFF(NOW(), last_login_at)', // mysql
-        };
-        /*
-        * query structure :
-        * 1 : last_login_at whitin a day
-        * 2 : last_login_at whitin a week but not the first day of the week
-        * 3 : last_login_at whitin a month but not the first week of the month
-        * 4 : last_login_at more than a month
-        */
-        $query = <<<LINE
-        COUNT(CASE WHEN {$condition} < 2 then 1 ELSE NULL END) as "1",
-        COUNT(CASE WHEN {$condition} > 1 AND {$condition} < 8 then 1 ELSE NULL END) as "7",
-        COUNT(CASE WHEN {$condition} > 7 AND {$condition} < 32 then 1 ELSE NULL END) as "31",
-        COUNT(CASE WHEN  {$condition} > 31 then 1 ELSE NULL END) as "+1 month"
-        LINE;
+        $column = 'last_login_at';
 
-        return (array) DB::table('users')->select(DB::raw($query))->whereNotNull('last_login_at')->first();
+        $dayUsers = User::where($column, '>', now()->subDay())->count();
+        $weekUsers = User::where($column, '>', now()->subWeek())->count() - $dayUsers;
+        $monthUsers = User::where($column, '>', now()->subMonth())->count() - $weekUsers;
+
+        $dayTrans = now()->subDay()->longAbsoluteDiffForHumans();
+        $weekTrans = now()->subWeek()->longAbsoluteDiffForHumans();
+        $monthTrans = now()->subMonth()->longAbsoluteDiffForHumans();
+
+        return [
+            $dayTrans => $dayUsers,
+            $weekTrans => $weekUsers,
+            $monthTrans => $monthUsers,
+            '+ '.$monthTrans => $totalUsers - $monthUsers,
+        ];
     }
 }

@@ -19,13 +19,17 @@
                 <div class="collapse" id="codesCollapse">
                     <div class="card mb-4">
                         <div class="card-body">
-                            <ul class="list-columns-2 mb-0">
+                            <ul class="list-columns-2">
                                 @foreach($user->two_factor_recovery_codes ?? [] as $code)
                                     <li>
                                         <samp>{{ $code }}</samp>
                                     </li>
                                 @endforeach
                             </ul>
+
+                            <a href="{{ route('profile.2fa.codes') }}" class="btn btn-primary" download="{{ $codesBackupName }}">
+                                <i class="bi bi-download"></i> {{ trans('messages.actions.download') }}
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -35,11 +39,11 @@
                 @csrf
 
                 <a class="btn btn-secondary" href="{{ route('profile.index') }}">
-                    {{ trans('messages.actions.back') }}
+                    <i class="bi bi-arrow-left"></i> {{ trans('messages.actions.back') }}
                 </a>
 
                 <button type="submit" class="btn btn-danger">
-                    {{ trans('messages.profile.2fa.disable') }}
+                    <i class="bi bi-shield-slash"></i> {{ trans('messages.profile.2fa.disable') }}
                 </button>
             </form>
 

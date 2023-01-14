@@ -5,18 +5,31 @@ namespace Azuriom\Http\Controllers;
 use Azuriom\Models\ActionLog;
 use Azuriom\Models\User;
 use Azuriom\Notifications\AlertNotification;
+use Azuriom\Notifications\UserDelete;
 use Azuriom\Support\QrCodeRenderer;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\HtmlString;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use PragmaRX\Google2FA\Google2FA;
 
 class ProfileController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware(function (Request $request, callable $next) {
+            abort_if(! setting('user.delete'), 404);
+
+            return $next($request);
+        })->only(['showDelete', 'sendDelete', 'confirmDelete']);
+    }
+
     /**
      * Show the user profile.
      *
@@ -25,7 +38,10 @@ class ProfileController extends Controller
      */
     public function index(Request $request)
     {
-        return view('profile.index', ['user' => $request->user()]);
+        return view('profile.index', [
+            'user' => $request->user(),
+            'canDelete' => setting('user.delete', false),
+        ]);
     }
 
     /**
@@ -54,7 +70,8 @@ class ProfileController extends Controller
 
         $user->sendEmailVerificationNotification();
 
-        return redirect()->route('profile.index')->with('success', trans('messages.profile.updated'));
+        return redirect()->route('profile.index')
+            ->with('success', trans('messages.profile.updated'));
     }
 
     public function updatePassword(Request $request)
@@ -71,7 +88,8 @@ class ProfileController extends Controller
         Auth::logoutOtherDevices($password);
         event(new PasswordReset($user));
 
-        return redirect()->route('profile.index')->with('success', trans('messages.profile.updated'));
+        return redirect()->route('profile.index')
+            ->with('success', trans('messages.profile.updated'));
     }
 
     /**
@@ -85,7 +103,10 @@ class ProfileController extends Controller
     public function show2fa(Request $request)
     {
         if ($request->user()->hasTwoFactorAuth()) {
-            return view('profile.2fa.index', ['user' => $request->user()]);
+            return view('profile.2fa.index', [
+                'user' => $request->user(),
+                'codesBackupName' => Str::slug(site_name()).'-codes.txt',
+            ]);
         }
 
         $google2fa = new Google2FA();
@@ -97,6 +118,18 @@ class ProfileController extends Controller
         return view('profile.2fa.enable', [
             'secret' => $secret,
             'qrCode' => new HtmlString(QrCodeRenderer::render($qrCodeUrl, 250)),
+        ]);
+    }
+
+    public function download2faCodes(Request $request)
+    {
+        abort_if(! $request->user()->hasTwoFactorAuth(), 404);
+
+        $codes = $request->user()->two_factor_recovery_codes;
+
+        return new Response(Arr::join($codes, "\n"), 200, [
+            'Content-Disposition' => 'attachment',
+            'Content-Type' => 'text/plain',
         ]);
     }
 
@@ -153,7 +186,8 @@ class ProfileController extends Controller
 
         ActionLog::log('users.2fa.disabled', null, ['ip' => $request->ip()]);
 
-        return redirect()->route('profile.index')->with('success', trans('messages.profile.2fa.disabled'));
+        return redirect()->route('profile.index')
+            ->with('success', trans('messages.profile.2fa.disabled'));
     }
 
     public function theme(Request $request)
@@ -165,6 +199,40 @@ class ProfileController extends Controller
         $cookie = cookie('theme', $request->input('theme'), 525600, null, null, null, false);
 
         return redirect()->back()->withCookie($cookie);
+    }
+
+    public function showDelete()
+    {
+        return view('profile.delete', ['confirmDelete' => false]);
+    }
+
+    public function sendDelete(Request $request)
+    {
+        $request->user()->notify(new UserDelete());
+
+        return redirect()
+            ->route('profile.index')
+            ->with('success', trans('messages.profile.delete.sent'));
+    }
+
+    public function showDeleteConfirm()
+    {
+        return view('profile.delete', ['confirmDelete' => true]);
+    }
+
+    public function confirmDelete(Request $request)
+    {
+        $user = $request->user();
+
+        abort_if((int) $request->input('id') !== $user->id, 403);
+        ActionLog::log('users.deleted', $user);
+
+        $user->delete();
+        $request->session()->flush();
+
+        return redirect()
+            ->route('home')
+            ->with('success', trans('messages.profile.delete.success'));
     }
 
     public function transferMoney(Request $request)
@@ -198,10 +266,11 @@ class ProfileController extends Controller
 
         ActionLog::log('users.transfer', $receiver, ['money' => $money]);
 
-        $notification = (new AlertNotification(trans('messages.profile.money_transfer.notification', [
+        $message = trans('messages.profile.money_transfer.notification', [
             'user' => $user->name,
             'money' => format_money($money),
-        ])))->from($user);
+        ]);
+        $notification = (new AlertNotification($message))->from($user);
 
         $receiver->notifications()->create($notification->toArray());
 

@@ -67,11 +67,9 @@ class ThemeManager extends ExtensionManager
         $this->loadConfig($theme);
     }
 
-    public function changeTheme($theme)
+    public function changeTheme(?string $theme)
     {
         Setting::updateSettings('theme', $theme);
-
-        Cache::forget('theme.config.'.$theme);
 
         if ($theme) {
             $this->createAssetsLink($theme);
@@ -84,7 +82,7 @@ class ThemeManager extends ExtensionManager
 
         $this->files->put($this->path('config.json', $theme), $json);
 
-        Cache::put('theme.config.'.$theme, $config, now()->addDay());
+        Setting::updateSettings('themes.config.'.$theme, $config);
     }
 
     /**
@@ -201,11 +199,9 @@ class ThemeManager extends ExtensionManager
      */
     public function findThemes()
     {
-        $directories = $this->files->directories($this->themesPath);
+        $paths = $this->files->directories($this->themesPath);
 
-        return array_map(function ($dir) {
-            return $this->files->basename($dir);
-        }, $directories);
+        return array_map(fn ($dir) => $this->files->basename($dir), $paths);
     }
 
     /**
@@ -219,9 +215,13 @@ class ThemeManager extends ExtensionManager
             return;
         }
 
+        Setting::updateSettings('themes.config.'.$theme, null);
+
         $this->files->deleteDirectory($this->publicPath('', $theme));
 
         $this->files->deleteDirectory($this->path('', $theme));
+
+        Cache::forget('updates_counts');
     }
 
     /**
@@ -249,9 +249,7 @@ class ThemeManager extends ExtensionManager
         $themes = app(UpdateManager::class)->getThemes($force);
 
         $installedThemes = $this->findThemesDescriptions()
-            ->filter(function ($theme) {
-                return isset($theme->apiId);
-            });
+            ->filter(fn ($theme) => isset($theme->apiId));
 
         return collect($themes)->filter(function ($theme) use ($installedThemes) {
             return ! $installedThemes->contains('apiId', $theme['id']);
@@ -315,12 +313,16 @@ class ThemeManager extends ExtensionManager
 
     protected function loadConfig(string $theme)
     {
-        $themeConfig = Cache::remember('theme.config.'.$theme, now()->addDay(), function () use ($theme) {
-            return $this->readConfig($theme);
-        });
+        $config = setting('themes.config.'.$theme);
 
-        if ($themeConfig !== null) {
-            foreach ($themeConfig as $key => $value) {
+        if ($config === null) {
+            $config = $this->readConfig($theme);
+
+            Setting::updateSettings('themes.config.'.$theme, $config);
+        }
+
+        if ($config !== null) {
+            foreach ($config as $key => $value) {
                 config()->set('theme.'.$key, $value);
             }
         }

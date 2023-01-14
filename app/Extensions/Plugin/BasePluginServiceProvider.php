@@ -2,6 +2,7 @@
 
 namespace Azuriom\Extensions\Plugin;
 
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Gate;
@@ -58,6 +59,22 @@ abstract class BasePluginServiceProvider extends ServiceProvider
         //
     }
 
+    /**
+     * Define the application's command schedule.
+     *
+     * @param  \Illuminate\Console\Scheduling\Schedule  $schedule
+     * @return void
+     */
+    protected function schedule(Schedule $schedule)
+    {
+        //
+    }
+
+    protected function registerMiddleware()
+    {
+        $this->registerMiddlewares();
+    }
+
     protected function registerMiddlewares()
     {
         $this->middleware($this->middleware);
@@ -102,16 +119,12 @@ abstract class BasePluginServiceProvider extends ServiceProvider
 
     protected function registerAdminNavigation()
     {
-        $this->app['plugins']->addAdminNavItem(function () {
-            return $this->adminNavigation();
-        });
+        $this->app['plugins']->addAdminNavItem(fn () => $this->adminNavigation());
     }
 
     protected function registerUserNavigation()
     {
-        $this->app['plugins']->addUserNavItem(function () {
-            return $this->userNavigation();
-        });
+        $this->app['plugins']->addUserNavItem(fn () => $this->userNavigation());
     }
 
     protected function middleware($middleware, bool $before = false)
@@ -131,8 +144,8 @@ abstract class BasePluginServiceProvider extends ServiceProvider
     {
         $middlewares = is_array($name) ? $name : [$name => $middleware];
 
-        foreach ($middlewares as $key => $middleware) {
-            $this->router->middlewareGroup($key, $middleware);
+        foreach ($middlewares as $key => $class) {
+            $this->router->middlewareGroup($key, $class);
         }
     }
 
@@ -140,8 +153,16 @@ abstract class BasePluginServiceProvider extends ServiceProvider
     {
         $middlewares = is_array($name) ? $name : [$name => $middleware];
 
-        foreach ($middlewares as $key => $middleware) {
-            $this->router->aliasMiddleware($key, $middleware);
+        foreach ($middlewares as $key => $class) {
+            $this->router->aliasMiddleware($key, $class);
+        }
+    }
+
+    protected function registerSchedule() {
+        if ($this->app->runningInConsole()) {
+            $this->app->booted(function () {
+                $this->schedule($this->app->make(Schedule::class));
+            });
         }
     }
 

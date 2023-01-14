@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Storage;
 if (! function_exists('add_active')) {
     function add_active(string ...$patterns)
     {
-        return Route::currentRouteNamed(...$patterns) ? 'active' : '';
+        return Route::is(...$patterns) ? 'active' : '';
     }
 }
 
@@ -43,7 +43,9 @@ if (! function_exists('is_installed')) {
 if (! function_exists('format_date')) {
     function format_date(Carbon $date, bool $fullTime = false)
     {
-        return $date->translatedFormat(trans('messages.date.'.($fullTime ? 'full' : 'default')));
+        $format = trans('messages.date.'.($fullTime ? 'full' : 'default'));
+
+        return $date->translatedFormat($format);
     }
 }
 
@@ -229,10 +231,10 @@ if (! function_exists('theme_config')) {
      * Generate an asset path for the current theme.
      *
      * @param  string|null  $key
-     * @param  mixed  $default
+     * @param  mixed|null  $default
      * @return mixed
      */
-    function theme_config(string $key = null, $default = null)
+    function theme_config(string $key = null, mixed $default = null)
     {
         return $key === null ? config('theme') : config('theme.'.$key, $default);
     }
@@ -264,6 +266,6 @@ if (! function_exists('oauth_login')) {
 if (! function_exists('dark_theme')) {
     function dark_theme()
     {
-        return request()->cookie('theme') === 'dark';
+        return request()?->cookie('theme') === 'dark';
     }
 }

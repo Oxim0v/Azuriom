@@ -111,7 +111,9 @@ return [
             'copyright' => 'Copyright',
             'user_money_transfer' => 'Enable money transfer between users',
             'site_key' => 'Site key for azuriom.com',
-            'site_key_info' => 'The azuriom.com site key is required to install premiums extensions purchased on the market. You can obtain your site key in your <a href="https://market.azuriom.com/profile" target="_blank" rel="noopener norefferer">Azuriom profile</a>.',
+            'site_key_info' => 'The azuriom.com site key is required to install premium extensions purchased on the market. You can obtain your site key in your <a href="https://market.azuriom.com/profile" target="_blank" rel="noopener norefferer">Azuriom profile</a>.',
+            'webhook' => 'Posts Discord Webhook URL',
+            'webhook_info' => 'A Discord webhook will be sent to this URL when creating a new post, if the publication date is not in the future. Leave empty to disable.',
         ],
 
         'security' => [
@@ -123,6 +125,7 @@ return [
                 'secret_key' => 'Secret key',
                 'recaptcha' => 'You can get reCaptcha keys on the <a href="https://www.google.com/recaptcha/" target="_blank" rel="noopener noreferrer"> Google reCaptcha website</a>. You need to use reCaptcha <strong>v2 invisible</strong> keys.',
                 'hcaptcha' => 'You can get hCaptcha keys on the <a href="https://www.hcaptcha.com/" target="_blank" rel="noopener noreferrer"> hCaptcha website</a>.',
+                'turnstile' => 'You can get Turnstil keys on the <a href="https://dash.cloudflare.com/?to=/:account/turnstile" target="_blank" rel="noopener noreferrer">Cloudflare dashboard</a>. You must select "Managed" widget.',
             ],
 
             'hash' => 'Hash algorithm',
@@ -179,6 +182,7 @@ return [
             'registration_info' => 'It can still be possible to register through plugins.',
             'api' => 'Enable Auth API',
             'api_info' => 'This API allows you to add a custom authentication to your game server. For Minecraft servers using a launcher, you can use <a href="https://github.com/Azuriom/AzAuth" target="_blank" rel="noopener noreferrer">AzAuth</a> for an easy and quick integration.',
+            'user_delete' => 'Allow users to delete their account from their profile',
         ],
 
         'mail' => [
@@ -198,6 +202,7 @@ return [
             'verification' => 'Enable user email address verification',
             'send' => 'Send a test email',
             'sent' => 'The test mail has been successfully sent.',
+            'missing' => 'No email address has been specified on your account.',
         ],
 
         'maintenance' => [
@@ -229,8 +234,7 @@ return [
             'posts' => 'Posts list',
             'plugin' => 'Plugin',
             'dropdown' => 'Dropdown',
-            'new-tab' => 'Open in new tab',
-            'roles' => 'Roles',
+            'new_tab' => 'Open in new tab',
         ],
 
         'updated' => 'Navbar updated.',
@@ -274,6 +278,7 @@ return [
             'link2' => 'Restart the server.',
             'link3' => 'Execute this command on the server: ',
 
+            'info' => 'If you are having problems with AzLink when using Cloudflare or a firewall, try following the steps in the <a href="https://azuriom.com/docs/faq" target="_blank" rel="noopener norefferer">FAQ</a>.',
             'command' => 'You can link your Minecraft server to your website with the command: ',
             'port_command' => 'If you are using a different AzLink port than the default, you must configure it with the command: ',
             'ping' => 'Enable instant commands (require an open port on the server)',
@@ -296,6 +301,7 @@ return [
             'mc-azlink' => 'AzLink',
             'source-query' => 'Source Query',
             'source-rcon' => 'Source RCON',
+            'steam-azlink' => 'AzLink',
             'bedrock-ping' => 'Bedrock Ping',
             'bedrock-rcon' => 'Bedrock RCON',
             'fivem-status' => 'FiveM status',
@@ -354,6 +360,10 @@ return [
             'banned' => 'This user is now banned.',
             'unbanned' => 'This user has been unbanned.',
         ],
+
+        'notify' => 'Send a notification',
+        'notify_info' => 'Send a notification to this user',
+        'notify_all' => 'Send a notification to all users',
     ],
 
     'roles' => [
@@ -406,6 +416,7 @@ return [
         'published_info' => 'This post will not be visible publicly until this date.',
         'pin' => 'Pin this post',
         'pinned' => 'Pinned',
+        'feed' => 'An RSS/Atom feed for the posts is available on <code>:rss</code> and <code>:atom</code>.',
     ],
 
     'pages' => [
@@ -414,6 +425,7 @@ return [
         'create' => 'Create page',
 
         'enable' => 'Enable the page',
+        'restrict' => 'Limit roles that will be able to access this page',
     ],
 
     'redirects' => [
@@ -434,6 +446,7 @@ return [
         'title' => 'Images',
         'edit' => 'Edit image :image',
         'create' => 'Upload image',
+        'help' => 'If images are not loading, try following the steps in the <a href="https://azuriom.com/docs/faq" target="_blank" rel="noopener norefferer">FAQ</a>.',
     ],
 
     'extensions' => [
@@ -443,11 +456,11 @@ return [
     'plugins' => [
         'title' => 'Plugins',
 
-        'installed' => 'Installed plugins',
+        'list' => 'Installed plugins',
         'available' => 'Available plugins',
 
         'requirements' => [
-            'api' => 'This plugin is not updated yet for Azuriom 1.0.',
+            'api' => 'This plugin version is not compatible with Azuriom v1.0.',
             'azuriom' => 'This plugin is not compatible with your Azuriom version.',
             'game' => 'This plugin is not compatible with the game :game.',
             'plugin' => 'The plugin ":plugin" is missing or its version is not compatible with this plugin.',
@@ -468,10 +481,10 @@ return [
         'current' => 'Current theme',
         'author' => 'Author: :author',
         'version' => 'Version: :version',
-        'installed' => 'Installed themes',
+        'list' => 'Installed themes',
         'available' => 'Available themes',
         'no-enabled' => 'You don\'t have any themes enabled.',
-        'legacy' => 'This theme is not updated yet for Azuriom 1.0.',
+        'legacy' => 'This theme version is not compatible with Azuriom v1.0.',
 
         'config' => 'Edit config',
         'disable' => 'Disable theme',
@@ -576,6 +589,7 @@ return [
 
         'themes' => [
             'changed' => 'Changed theme',
+            'configured' => 'Updated theme configuration',
         ],
     ],
 

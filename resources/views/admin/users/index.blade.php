@@ -80,6 +80,12 @@
                     <i class="bi bi-plus-lg"></i> {{ trans('messages.actions.add') }}
                 </a>
             @endif
+
+            <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#notificationModal">
+                <i class="bi bi-megaphone"></i> {{ trans('admin.users.notify') }}
+            </button>
         </div>
     </div>
+
+    @include('admin.users._notify', ['route' => route('admin.users.notify.all'), 'all' => true])
 @endsection

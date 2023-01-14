@@ -5,6 +5,7 @@ namespace Azuriom\Support;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Filesystem\Filesystem;
+use Throwable;
 
 class Optimizer
 {
@@ -46,9 +47,20 @@ class Optimizer
 
     public function cacheConfig()
     {
+        $currentTheme = themes()->currentTheme();
+
+        if ($currentTheme !== null) {
+            // Disable current theme to prevent caching view paths
+            themes()->changeTheme(null);
+        }
+
         $result = $this->artisan->call('config:cache');
 
         $this->removeFileFromOPCache($this->app->getCachedConfigPath());
+
+        if ($currentTheme !== null) {
+            themes()->changeTheme($currentTheme);
+        }
 
         return $result === 0;
     }
@@ -109,6 +121,10 @@ class Optimizer
             return false;
         }
 
-        return opcache_invalidate($file);
+        try {
+            return opcache_invalidate($file);
+        } catch (Throwable) {
+            return false;
+        }
     }
 }

@@ -5,14 +5,16 @@ namespace Azuriom\Http\Controllers\Admin;
 use Azuriom\Http\Controllers\Controller;
 use Azuriom\Http\Requests\UserRequest;
 use Azuriom\Models\ActionLog;
+use Azuriom\Models\Notification;
 use Azuriom\Models\Role;
 use Azuriom\Models\User;
+use Azuriom\Notifications\AlertNotification;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
@@ -36,7 +38,27 @@ class UserController extends Controller
         return view('admin.users.index', [
             'users' => $users,
             'search' => $search,
+            'notificationLevels' => Notification::LEVELS,
         ]);
+    }
+
+    public function notify(Request $request, User $user = null)
+    {
+        $this->validate($request, [
+            'level' => ['required', Rule::in(Notification::LEVELS)],
+            'content' => ['required', 'string', 'max:100'],
+        ]);
+
+        $users = $user !== null ? [$user] : User::lazy();
+        $notification = (new AlertNotification($request->input('content')))
+            ->level($request->input('level'))
+            ->from($request->user());
+
+        foreach ($users as $localUser) {
+            $notification->send($localUser);
+        }
+
+        return redirect()->back()->with('success', trans('messages.status.success'));
     }
 
     /**
@@ -71,7 +93,8 @@ class UserController extends Controller
         $user->role()->associate($role);
         $user->save();
 
-        return redirect()->route('admin.users.index')->with('success', trans('messages.status.success'));
+        return redirect()->route('admin.users.index')
+            ->with('success', trans('messages.status.success'));
     }
 
     /**
@@ -91,6 +114,7 @@ class UserController extends Controller
             'user' => $user->load('ban'),
             'roles' => Role::orderByDesc('power')->get(),
             'logs' => $logs,
+            'notificationLevels' => Notification::LEVELS,
         ]);
     }
 
@@ -128,7 +152,8 @@ class UserController extends Controller
 
         ActionLog::log('users.updated', $user);
 
-        return redirect()->route('admin.users.index')->with('success', trans('messages.status.success'));
+        return redirect()->route('admin.users.index')
+            ->with('success', trans('messages.status.success'));
     }
 
     public function verifyEmail(User $user)
@@ -147,11 +172,15 @@ class UserController extends Controller
 
     public function disable2fa(User $user)
     {
-        $user->update(['two_factor_secret' => null]);
+        $user->forceFill([
+            'two_factor_secret' => null,
+            'two_factor_recovery_codes' => null,
+        ])->save();
 
         ActionLog::log('users.updated', $user);
 
-        return redirect()->route('admin.users.edit', $user)->with('success', trans('admin.users.2fa.disabled'));
+        return redirect()->route('admin.users.edit', $user)
+            ->with('success', trans('admin.users.2fa.disabled'));
     }
 
     /**
@@ -166,32 +195,18 @@ class UserController extends Controller
             return redirect()->back();
         }
 
-        $user->comments()->delete();
-        $user->likes()->delete();
-
-        $user->setRememberToken(null);
-
-        $user->forceFill([
-            'name' => 'Deleted #'.$user->id,
-            'email' => 'deleted'.$user->id.'@deleted.ltd',
-            'password' => Hash::make(Str::random()),
-            'role_id' => Role::defaultRoleId(),
-            'game_id' => null,
-            'access_token' => null,
-            'two_factor_secret' => null,
-            'email_verified_at' => null,
-            'last_login_ip' => null,
-            'deleted_at' => now(),
-        ])->save();
+        $user->delete();
 
         ActionLog::log('users.deleted', $user);
 
-        return redirect()->route('admin.users.index', $user)->with('success', trans('messages.status.success'));
+        return redirect()->route('admin.users.index', $user)
+            ->with('success', trans('messages.status.success'));
     }
 
     protected function validateRole(User $user, Role $role, User $target = null)
     {
-        if (($target && $user->role->power < $target->role->power) || (! $user->isAdmin() && $user->role->power < $role->power)) {
+        if (($target && $user->role->power < $target->role->power)
+            || (! $user->isAdmin() && $user->role->power < $role->power)) {
             throw ValidationException::withMessages([
                 'role_id' => trans('admin.roles.unauthorized'),
             ]);

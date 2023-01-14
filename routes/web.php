@@ -55,9 +55,20 @@ Route::prefix('profile')->name('profile.')->middleware('auth')->group(function (
 
     Route::prefix('2fa')->name('2fa.')->middleware('password.confirm')->group(function () {
         Route::get('/', [ProfileController::class, 'show2fa'])->name('index');
+        Route::get('/codes', [ProfileController::class, 'download2faCodes'])->name('codes');
 
         Route::post('/enable', [ProfileController::class, 'enable2fa'])->name('enable');
         Route::post('/disable', [ProfileController::class, 'disable2fa'])->name('disable');
+    });
+
+    Route::prefix('delete')->name('delete.')->middleware('password.confirm')->group(function () {
+        Route::get('/', [ProfileController::class, 'showDelete'])->name('index');
+
+        Route::post('/send', [ProfileController::class, 'sendDelete'])->name('send');
+        Route::get('/confirm', [ProfileController::class, 'showDeleteConfirm'])->name('confirm')
+            ->middleware('signed');
+        Route::post('/confirm', [ProfileController::class, 'confirmDelete'])
+            ->middleware('signed');
     });
 
     Route::post('/money/transfer', [ProfileController::class, 'transferMoney'])->name('transfer-money');

@@ -18,7 +18,7 @@ class AuthController extends Controller
     public function __construct()
     {
         $this->middleware(function (Request $request, callable $next) {
-            if (! setting('auth-api', false)) {
+            if (! setting('auth_api', false)) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Auth API is not enabled',
@@ -136,7 +136,9 @@ class AuthController extends Controller
     {
         $this->validate($request, ['access_token' => 'required|string']);
 
-        User::where('access_token', $request->input('access_token'))->update(['access_token' => null]);
+        User::where('access_token', $request->input('access_token'))->update([
+            'access_token' => null,
+        ]);
 
         return response()->json(['status' => 'success']);
     }

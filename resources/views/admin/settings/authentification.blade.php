@@ -24,7 +24,7 @@
 
                 <div class="mb-3">
                     <div class="form-check form-switch">
-                        <input type="checkbox" class="form-check-input" id="registerInput" name="register" @if($register) checked @endif aria-describedby="registerInput">
+                        <input type="checkbox" class="form-check-input" id="registerInput" name="register" @checked($register) aria-describedby="registerInput">
                         <label class="form-check-label" for="registerInput">{{ trans('admin.settings.auth.registration') }}</label>
                     </div>
 
@@ -33,11 +33,18 @@
 
                 <div class="mb-3">
                     <div class="form-check form-switch">
-                        <input type="checkbox" class="form-check-input" id="authApiInput" name="auth-api" @if($authApi) checked @endif aria-describedby="authApiInfo">
+                        <input type="checkbox" class="form-check-input" id="authApiInput" name="auth_api" @checked($authApi) aria-describedby="authApiInfo">
                         <label class="form-check-label" for="authApiInput">{{ trans('admin.settings.auth.api') }}</label>
                     </div>
 
                     <small id="authApiInfo" class="form-text">@lang('admin.settings.auth.api_info')</small>
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input type="checkbox" class="form-check-input" id="userDelete" name="user_delete" @checked($userDelete)>
+                        <label class="form-check-label" for="userDelete">{{ trans('admin.settings.auth.user_delete') }}</label>
+                    </div>
                 </div>
 
                 <button type="submit" class="btn btn-primary">
@@ -62,8 +69,11 @@
                         <option value="hcaptcha" @selected($captchaType === 'hcaptcha')>
                             hCaptcha
                         </option>
+                        <option value="turnstile" @selected($captchaType === 'turnstile')>
+                            Cloudflare Turnstile
+                        </option>
                         <option value="recaptcha" @selected($captchaType === 'recaptcha')>
-                            reCaptcha
+                            Google reCaptcha
                         </option>
                     </select>
 
@@ -72,7 +82,7 @@
                     @enderror
                 </div>
 
-                <div v-show="type === 'hcaptcha' || type === 'recaptcha'">
+                <div v-show="type">
                     <div class="card card-body mb-2">
                         <div class="row g-3">
                             <div class="mb-3 col-md-6">
@@ -83,12 +93,16 @@
                                 <span class="invalid-feedback" role="alert"><strong>{{ $message }}</strong></span>
                                 @enderror
 
-                                <small class="form-text" data-captcha-type="recaptcha">
+                                <small class="form-text" v-if="type === 'recaptcha'">
                                     @lang('admin.settings.security.captcha.recaptcha')
                                 </small>
 
-                                <small class="form-text" data-captcha-type="hcaptcha">
+                                <small class="form-text" v-if="type === 'hcaptcha'">
                                     @lang('admin.settings.security.captcha.hcaptcha')
+                                </small>
+
+                                <small class="form-text" v-if="type === 'turnstile'">
+                                    @lang('admin.settings.security.captcha.turnstile')
                                 </small>
                             </div>
 
@@ -122,7 +136,7 @@
                 @if($canForce2fa)
                     <div class="mb-3">
                         <div class="form-check form-switch">
-                            <input type="checkbox" class="form-check-input" id="force2faInput" name="force_2fa" @if($force2fa) checked @endif>
+                            <input type="checkbox" class="form-check-input" id="force2faInput" name="force_2fa" @checked($force2fa)>
                             <label class="form-check-label" for="force2faInput">{{ trans('admin.settings.security.force_2fa') }}</label>
                         </div>
                     </div>

@@ -107,9 +107,11 @@ return [
             'logo' => 'Logo',
             'timezone' => 'Fuseau horaire',
             'locale' => 'Langue',
-            'copyright' => 'Copyright',
             'money' => 'Nom de la monnaie du site',
+            'copyright' => 'Copyright',
             'user_money_transfer' => 'Activer le transfert de d\'argent entre les utilisateurs',
+            'webhook' => 'URL du webhook Discord pour les articles',
+            'webhook_info' => 'Un webhook Discord sera envoyé sur cette URL lors de la création d\'un nouvel article, si la date de publication n\'est pas dans le futur. Laisser vide pour désactiver.',
             'site_key' => 'Clé de site pour azuriom.com',
             'site_key_info' => 'La clé de site d\'azuriom.com est utilisée pour installer les extensions payantes achetées sur le market. Elle peut être obtenue dans votre <a href="https://market.azuriom.com/profile" target="_blank" rel="noopener norefferer">profil Azuriom</a>.',
         ],
@@ -123,6 +125,7 @@ return [
                 'secret_key' => 'Clé secrète',
                 'recaptcha' => 'Vous pouvez obtenir les clés Google reCaptcha sur le site de <a href="https://www.google.com/recaptcha/" target="_blank" rel="noopener noreferrer">Google reCaptcha</a>. Vous devez utiliser des clés reCaptcha <strong>v2 invisible</strong>.',
                 'hcaptcha' => 'Vous pouvez obtenir les clés hCaptcha sur le site de <a href="https://www.hcaptcha.com/" target="_blank" rel="noopener noreferrer">hCaptcha</a>.',
+                'turnstile' => 'Vous pouvez obtenir les clés Turnstile sur le <a href="https://dash.cloudflare.com/?to=/:account/turnstile" target="_blank" rel="noopener noreferrer">tableau de bord Cloudflare</a>. Vous devez sélectionner le widget "Géré".',
             ],
 
             'hash' => 'Algorithme de hachage',
@@ -179,6 +182,7 @@ return [
             'registration_info' => 'Il sera toujours possible de s\'enregistrer par exemple avec des plugins.',
             'api' => 'Activer l\'API auth',
             'api_info' => 'Cette API vous permet d\'ajouter une authentification personnalisée à votre serveur de jeu. Pour les serveurs Minecraft utilisant un launcher vous pouvez utiliser <a href="https://github.com/Azuriom/AzAuth" target="_blank" rel="noopener noreferrer">AzAuth</a> pour une intégration simple et rapide.',
+            'user_delete' => 'Autoriser les utilisateurs à supprimer leur compte depuis le profil',
         ],
 
         'mail' => [
@@ -198,6 +202,7 @@ return [
             'verification' => 'Activer la vérification de l\'adresse email des utilisateurs',
             'send' => 'Envoyer un mail de test',
             'sent' => 'Le mail de test a bien été envoyé.',
+            'missing' => 'Aucune adresse email n\'a été renseignée sur votre compte',
         ],
 
         'maintenance' => [
@@ -229,8 +234,7 @@ return [
             'posts' => 'Liste des articles',
             'plugin' => 'Plugin',
             'dropdown' => 'Menu déroulant',
-            'new-tab' => 'Ouvrir dans un nouvel onglet',
-            'roles' => 'Grades',
+            'new_tab' => 'Ouvrir dans un nouvel onglet',
         ],
 
         'updated' => 'Navigation mise à jour',
@@ -274,6 +278,7 @@ return [
             'link2' => 'Redémarrer votre serveur.',
             'link3' => 'Exécuter cette commande sur votre serveur: ',
 
+            'info' => 'Si vous avez des problèmes avec AzLink en utilisant Cloudflare ou un pare-feu, essayez de suivre les étapes indiquées dans la <a href="https://azuriom.com/docs/faq" target="_blank" rel="noopener norefferer">FAQ</a>.',
             'command' => 'Vous pouvez lier votre serveur Minecraft à votre site web avec la commande: ',
             'port_command' => 'Si vous utilisez un port AzLink différent que celui par défaut, vous devez le configurer avec la commande: ',
             'ping' => 'Activer les commandes instantanées (nécessite un port ouvert libre sur le serveur)',
@@ -296,6 +301,7 @@ return [
             'mc-azlink' => 'AzLink',
             'source-query' => 'Source Query',
             'source-rcon' => 'RCON Source',
+            'steam-azlink' => 'AzLink',
             'bedrock-ping' => 'Ping Bedrock',
             'bedrock-rcon' => 'RCON Bedrock',
             'fivem-status' => 'Statut FiveM',
@@ -337,12 +343,6 @@ return [
         'ban-title' => 'Bannir :user',
         'ban-description' => 'Êtes-vous sûr de vouloir bannir cet utilisateur ?',
 
-        '2fa' => [
-            'title' => 'Authentification à deux facteurs',
-            'disable' => 'Désactiver l\'A2F',
-            'disabled' => 'L\'authentification à deux facteurs a été désactivée',
-        ],
-
         'email' => [
             'verify' => 'Vérifier l\'adresse email',
             'verified' => 'Adresse Email vérifiée',
@@ -350,10 +350,20 @@ return [
             'verify_success' => 'L\'adresse Email a été vérifiée',
         ],
 
+        '2fa' => [
+            'title' => 'Authentification à deux facteurs',
+            'disable' => 'Désactiver l\'A2F',
+            'disabled' => 'L\'authentification à deux facteurs a été désactivée',
+        ],
+
         'status' => [
             'banned' => 'Utilisateur banni',
             'unbanned' => 'Utilisateur débanni',
         ],
+
+        'notify' => 'Envoyer une notification',
+        'notify_info' => 'Envoyer une notification à cet utilisateur',
+        'notify_all' => 'Envoyer une notification à tous les utilisateurs',
     ],
 
     'roles' => [
@@ -406,6 +416,7 @@ return [
         'published_info' => 'Cet article ne sera visible de façon publique qu\'à partir de cette date.',
         'pin' => 'Épingler cet article',
         'pinned' => 'Épinglé',
+        'feed' => 'Un flux RSS/Atom pour les articles est disponible sur <code>:rss</code> et <code>:atom</code>.',
     ],
 
     'pages' => [
@@ -414,6 +425,7 @@ return [
         'create' => 'Création d\'une page',
 
         'enable' => 'Activer la page',
+        'restrict' => 'Limiter les grades qui peuvent accéder à cette page',
     ],
 
     'redirects' => [
@@ -434,6 +446,7 @@ return [
         'title' => 'Images',
         'edit' => 'Édition de l\'image :image',
         'create' => 'Upload une image',
+        'help' => 'Si les images ne s\'affichent pas, essayez de suivre les étapes indiquées dans la <a href="https://azuriom.com/docs/faq" target="_blank" rel="noopener norefferer">FAQ</a>.',
     ],
 
     'extensions' => [
@@ -443,11 +456,11 @@ return [
     'plugins' => [
         'title' => 'Plugins',
 
-        'installed' => 'Plugins installés',
+        'list' => 'Plugins installés',
         'available' => 'Plugins disponibles',
 
         'requirements' => [
-            'api' => 'Ce plugin n\'est pas encore compatible avec Azuriom 1.0',
+            'api' => 'La version de ce plugin n\'est pas compatible avec Azuriom v1.0',
             'azuriom' => 'Ce plugin n\'est pas compatible avec votre version d\'Azuriom.',
             'game' => 'Ce plugin n\'est pas compatible avec le jeu :game.',
             'plugin' => 'Le plugin ":plugin" est manquant ou sa version n\'est pas compatible avec ce plugin.',
@@ -468,10 +481,10 @@ return [
         'current' => 'Thème actuel',
         'author' => 'Auteur: :author',
         'version' => 'Version: :version',
-        'installed' => 'Thèmes installés',
+        'list' => 'Thèmes installés',
         'available' => 'Thèmes disponibles',
         'no-enabled' => 'Vous n\'avez pas de thème activé, le thème par défaut est automatiquement mis en place.',
-        'legacy' => 'Ce thème n\'est pas encore compatible avec Azuriom 1.0',
+        'legacy' => 'La version de ce thème n\'est pas compatible avec Azuriom v1.0',
 
         'config' => 'Configurer',
         'disable' => 'Désactiver le thème',
@@ -554,7 +567,7 @@ return [
             'deleted' => 'Suppression de l\'utilisateur #:id',
             'transfer' => 'Envoi d\'argent de :money à l\'utilisateur #:id',
 
-            'login' => 'Nouvelle connexion réusssie depuis :ip (A2F: :2fa)',
+            'login' => 'Nouvelle connexion réussie depuis :ip (A2F: :2fa)',
             '2fa' => [
                 'enabled' => 'Activation de l\'authentification à deux facteurs',
                 'disabled' => 'Désactivation de l\'authentification à deux facteurs',
@@ -575,7 +588,8 @@ return [
         ],
 
         'themes' => [
-            'changed' => 'Changement de theme',
+            'changed' => 'Changement de thème',
+            'configured' => 'Configuration du thème',
         ],
     ],
 

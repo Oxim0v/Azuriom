@@ -4,6 +4,10 @@ namespace Azuriom\Http\Controllers;
 
 use Azuriom\Extensions\Plugin\PluginManager;
 use Azuriom\Extensions\UpdateManager;
+use Azuriom\Games\Minecraft\MinecraftBedrockGame;
+use Azuriom\Games\Minecraft\MinecraftOnlineGame;
+use Azuriom\Games\Steam\SteamGame;
+use Azuriom\Models\Role;
 use Azuriom\Models\Setting;
 use Azuriom\Models\User;
 use Azuriom\Support\EnvEditor;
@@ -22,23 +26,21 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 use Throwable;
 
 class InstallController extends Controller
 {
     public const TEMP_KEY = 'base64:hmU1T3OuvHdi5t1wULI8Xp7geI+JIWGog9pBCNxslY8=';
+
     public const MIN_PHP_VERSION = '8.0';
+
     public const REQUIRED_EXTENSIONS = [
         'bcmath', 'ctype', 'json', 'mbstring', 'openssl', 'PDO', 'tokenizer',
         'xml', 'xmlwriter', 'curl', 'fileinfo', 'zip',
     ];
-    public const SUPPORTED_LANGUAGES_NAMES = [
-        'en' => 'English',
-        'fr' => 'Français',
-    ];
-    public const SUPPORTED_LANGUAGES = ['en', 'fr'];
 
-    protected $databaseDrivers = [
+    protected array $databaseDrivers = [
         'mysql' => 'MySQL/MariaDB',
         'pgsql' => 'PostgreSQL',
         'sqlite' => 'SQLite',
@@ -46,10 +48,11 @@ class InstallController extends Controller
     ];
 
     // TODO dynamic games
-    protected $steamGames = [
+    protected array $steamGames = [
         'gmod', 'ark', 'rust', 'fivem', 'csgo', 'tf2',
     ];
-    protected $games = [
+
+    protected array $games = [
         'minecraft' => [
             'name' => 'Minecraft',
             'logo' => 'assets/img/games/minecraft.png',
@@ -88,9 +91,9 @@ class InstallController extends Controller
         ],
     ];
 
-    protected $hasRequirements;
+    protected bool $hasRequirements;
 
-    protected $requirements;
+    protected array $requirements;
 
     /**
      * Create a new controller instance.
@@ -102,7 +105,7 @@ class InstallController extends Controller
 
         $this->middleware(function (Request $request, callable $next) {
             if (config('app.key') !== self::TEMP_KEY || ! $this->hasRequirements) {
-                return redirect()->home();
+                return redirect()->route('home');
             }
 
             return $next($request);
@@ -118,7 +121,7 @@ class InstallController extends Controller
     }
 
     /**
-     * Returns games keyed with `extention_id` and not the ressource id.
+     * Returns games keyed with `extension_id` and not the resource id.
      */
     private function getCommunityGames()
     {
@@ -199,14 +202,16 @@ class InstallController extends Controller
             return redirect()->route('install.games');
         } catch (Throwable $t) {
             return redirect()->back()->withInput()->with('error', trans('messages.status.error', [
-                'error' => utf8_encode($t->getMessage()),
+                'error' => mb_convert_encoding($t->getMessage(), 'UTF-8'),
             ]));
         }
     }
 
     public function showGames()
     {
-        return view('install.games', ['games' => $this->games]);
+        return view('install.games', [
+            'games' => Arr::except($this->games, 'custom'),
+        ]);
     }
 
     public function showGame(string $game)
@@ -217,7 +222,7 @@ class InstallController extends Controller
             return view('install.games.minecraft', [
                 'game' => $game,
                 'gameName' => 'Minecraft',
-                'locales' => self::SUPPORTED_LANGUAGES_NAMES,
+                'locales' => self::getAvailableLocales(),
             ]);
         }
 
@@ -225,7 +230,7 @@ class InstallController extends Controller
             return view('install.games.minecraft', [
                 'game' => $game,
                 'gameName' => 'Minecraft: Bedrock Edition',
-                'locales' => self::SUPPORTED_LANGUAGES_NAMES,
+                'locales' => self::getAvailableLocales(),
             ]);
         }
 
@@ -233,14 +238,14 @@ class InstallController extends Controller
             return view('install.games.steam', [
                 'game' => $game,
                 'gameName' => $this->games[$game]['name'],
-                'locales' => self::SUPPORTED_LANGUAGES_NAMES,
+                'locales' => self::getAvailableLocales(),
             ]);
         }
 
         return view('install.games.other', [
             'game' => $game,
             'gameName' => $this->games[$game]['name'],
-            'locales' => self::SUPPORTED_LANGUAGES_NAMES,
+            'locales' => self::getAvailableLocales(),
         ]);
     }
 
@@ -253,7 +258,7 @@ class InstallController extends Controller
                 $this->validate($request, [
                     'key' => 'required',
                     'url' => 'required',
-                    'locale' => [Rule::in(static::SUPPORTED_LANGUAGES)],
+                    'locale' => [Rule::in(static::getAvailableLocaleCodes())],
                 ]);
 
                 $profile = Http::get($request->input('url').'?xml=1')->body();
@@ -268,14 +273,15 @@ class InstallController extends Controller
                 $steamKey = $request->input('key');
 
                 try {
-                    $name = Http::get("https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002?steamids={$gameId}&key={$steamKey}")
-                        ->throw()
-                        ->json('response.players.0.personaname');
+                    $name = Http::get(SteamGame::USER_INFO_URL, [
+                        'key' => $steamKey,
+                        'steamids' => $gameId,
+                    ])->throw()->json('response.players.0.personaname');
 
                     if ($name === null) {
-                        throw new Exception('Invalid Steam URL.');
+                        throw new RuntimeException('Invalid Steam URL.');
                     }
-                } catch (HttpClientException $e) {
+                } catch (HttpClientException) {
                     throw ValidationException::withMessages(['key' => 'Invalid Steam API key.']);
                 }
             } elseif ($game === 'minecraft' || $game === 'mc-bedrock') {
@@ -287,21 +293,21 @@ class InstallController extends Controller
                     'name' => ['required_if:oauth,0', 'nullable', 'max:25'],
                     'email' => ['required_if:oauth,0', 'nullable', 'email', 'max:50'], // TODO ensure unique
                     'password' => ['required_if:oauth,0', 'nullable', 'confirmed', Password::default()],
-                    'locale' => [Rule::in(static::SUPPORTED_LANGUAGES)],
+                    'locale' => [Rule::in(static::getAvailableLocaleCodes())],
                 ]);
 
                 $name = $request->input('name');
 
                 if ($game === 'mc-online') {
                     $gameId = Str::replace('-', '', $request->input('uuid', ''));
-                    $response = Http::get("https://api.mojang.com/user/profiles/{$gameId}/names");
+                    $response = Http::get(MinecraftOnlineGame::PROFILE_LOOKUP.$gameId);
 
-                    if (! $response->successful() || ! ($name = Arr::get(Arr::last($response->json()), 'name'))) {
-                        throw ValidationException::withMessages(['uuid' => 'Invalid Minecraft UUID.']);
+                    if (! $response->successful() || ! ($name = $response->json('name'))) {
+                        throw ValidationException::withMessages(['uuid' => 'Invalid Minecraft UUID or couldn\'t contact Mojang\'s session server.']);
                     }
                 } elseif ($game === 'mc-bedrock') {
                     $gameId = $request->input('xuid');
-                    $name = Http::get("https://xbox-api.azuriom.com/profiles/{$gameId}")
+                    $name = Http::get(MinecraftBedrockGame::PROFILE_LOOKUP.$gameId)
                         ->json('gamertag');
 
                     if ($name === null) {
@@ -350,6 +356,7 @@ class InstallController extends Controller
                 }
             }
 
+            $roleId = Role::admin()->orderByDesc('power')->value('id');
             $user = User::create([
                 'name' => $name,
                 'email' => $request->input('email'),
@@ -358,7 +365,7 @@ class InstallController extends Controller
             ]);
 
             $user->markEmailAsVerified();
-            $user->forceFill(['role_id' => 2])->save();
+            $user->forceFill(['role_id' => $roleId])->save();
 
             if ($game !== 'mc-offline') {
                 Setting::updateSettings('register', false);
@@ -367,7 +374,7 @@ class InstallController extends Controller
             throw $e;
         } catch (Exception $e) {
             return redirect()->back()->withInput()->with('error', trans('messages.status.error', [
-                'error' => utf8_encode($e->getMessage()),
+                'error' => mb_convert_encoding($e->getMessage(), 'UTF-8'),
             ]));
         }
 
@@ -407,8 +414,8 @@ class InstallController extends Controller
         }
 
         try {
-            return strpos(ini_get('disable_functions'), $function) === false;
-        } catch (Exception $e) {
+            return ! Str::contains(ini_get('disable_functions'), $function);
+        } catch (Exception) {
             return false;
         }
     }
@@ -422,5 +429,18 @@ class InstallController extends Controller
         }
 
         return PHP_VERSION;
+    }
+
+    public static function getAvailableLocales()
+    {
+        return static::getAvailableLocaleCodes()->mapWithKeys(fn (string $file) => [
+            $file => trans('messages.lang', [], $file),
+        ]);
+    }
+
+    public static function getAvailableLocaleCodes()
+    {
+        return collect(File::directories(app()->langPath()))
+            ->map(fn (string $path) => basename($path));
     }
 }

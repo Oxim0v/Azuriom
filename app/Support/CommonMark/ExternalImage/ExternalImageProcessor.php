@@ -2,6 +2,7 @@
 
 namespace Azuriom\Support\CommonMark\ExternalImage;
 
+use Illuminate\Support\Str;
 use League\CommonMark\Environment\EnvironmentInterface;
 use League\CommonMark\Event\DocumentParsedEvent;
 use League\CommonMark\Extension\CommonMark\Node\Inline\Image;
@@ -17,8 +18,9 @@ class ExternalImageProcessor
 
     public function __invoke(DocumentParsedEvent $e)
     {
-        $internalHosts = $this->environment->getConfiguration()->get('external_image/internal_hosts', []);
-        $imageProxy = $this->environment->getConfiguration()->get('external_image/image_proxy', '');
+        $config = $this->environment->getConfiguration();
+        $internalHosts = $config->get('external_image/internal_hosts');
+        $imageProxy = $config->get('external_image/image_proxy');
 
         $walker = $e->getDocument()->walker();
         while ($event = $walker->next()) {
@@ -34,6 +36,7 @@ class ExternalImageProcessor
 
                 if (self::hostMatches($host, $internalHosts)) {
                     $image->data->set('external', false);
+
                     continue;
                 }
 
@@ -60,6 +63,10 @@ class ExternalImageProcessor
         }
 
         foreach ((array) $compareTo as $c) {
+            if (Str::contains($c, ':')) {
+                $c = Str::before($c, ':');
+            }
+
             if (strncmp($c, '/', 1) === 0) {
                 if (preg_match($c, $host)) {
                     return true;

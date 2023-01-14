@@ -59,11 +59,11 @@
         </div>
 
         <p class="text-danger" data-database="sqlite sqlsrv">
-            {{ trans('install.database.warn') }}
+            <i class="bi bi-exclamation-triangle"></i> {{ trans('install.database.warn') }}
         </p>
 
         <div class="text-center">
-            <button type="submit" class="btn btn-primary">
+            <button type="submit" class="btn btn-primary rounded-pill">
                 {{ trans('messages.actions.continue') }} <i class="bi bi-arrow-right"></i>
             </button>
         </div>

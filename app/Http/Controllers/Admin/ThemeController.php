@@ -104,12 +104,14 @@ class ThemeController extends Controller
         } catch (Throwable $t) {
             report($t);
 
-            return redirect()->route('admin.themes.index')->with('error', trans('messages.status.error', [
-                'error' => $t->getMessage(),
-            ]));
+            return redirect()->route('admin.themes.index')
+                ->with('error', trans('messages.status.error', [
+                    'error' => $t->getMessage(),
+                ]));
         }
 
-        return redirect()->route('admin.themes.index')->with('success', trans('admin.themes.installed'));
+        return redirect()->route('admin.themes.index')
+            ->with('success', trans('admin.themes.installed'));
     }
 
     public function download(string $themeId)
@@ -117,23 +119,27 @@ class ThemeController extends Controller
         try {
             $this->themes->install($themeId);
         } catch (Throwable $t) {
-            return redirect()->route('admin.themes.index')->with('error', trans('messages.status.error', [
-                'error' => $t->getMessage(),
-            ]));
+            return redirect()->route('admin.themes.index')
+                ->with('error', trans('messages.status.error', [
+                    'error' => $t->getMessage(),
+                ]));
         }
 
-        return redirect()->route('admin.themes.index')->with('success', trans('admin.themes.installed'));
+        return redirect()->route('admin.themes.index')
+            ->with('success', trans('admin.themes.installed'));
     }
 
     public function delete(string $theme)
     {
         if ($this->themes->currentTheme() === $theme) {
-            return redirect()->route('admin.themes.index')->with('error', trans('admin.themes.delete_current'));
+            return redirect()->route('admin.themes.index')
+                ->with('error', trans('admin.themes.delete_current'));
         }
 
         $this->themes->delete($theme);
 
-        return redirect()->route('admin.themes.index')->with('success', trans('admin.themes.deleted'));
+        return redirect()->route('admin.themes.index')
+            ->with('success', trans('admin.themes.deleted'));
     }
 
     public function edit(Request $request, string $theme)
@@ -145,7 +151,8 @@ class ThemeController extends Controller
         $viewPath = $this->themes->path('config/config.blade.php', $theme);
 
         if (! $this->files->exists($viewPath)) {
-            return redirect()->route('admin.themes.index')->with('error', trans('admin.themes.no_config'));
+            return redirect()->route('admin.themes.index')
+                ->with('error', trans('admin.themes.no_config'));
         }
 
         return view()->file($viewPath, [
@@ -168,19 +175,24 @@ class ThemeController extends Controller
         $rulesPath = $this->themes->path('config/rules.php', $theme);
 
         try {
-            $validated = $this->validate($request, $this->files->getRequire($rulesPath));
+            $config = $this->validate($request, $this->files->getRequire($rulesPath));
 
-            $this->themes->updateConfig($theme, $validated);
+            if ($request->has('append')) {
+                $currentConfig = $this->themes->readConfig($theme);
+                $config = static::appendConfig($currentConfig, $config);
+            }
+
+            $this->themes->updateConfig($theme, $config);
+
+            ActionLog::log('themes.configured');
 
             if ($request->isXmlHttpRequest()) {
                 return response()->json(['message' => 'admin.themes.config_updated']);
             }
 
-            return redirect()->route('admin.themes.index')->with(
-                'success',
-                trans('admin.themes.config_updated')
-            );
-        } catch (FileNotFoundException $e) {
+            return redirect()->route('admin.themes.config', $theme)
+                ->with('success', trans('admin.themes.config_updated'));
+        } catch (FileNotFoundException) {
             return redirect()->back()->with('error', 'Invalid theme configuration.');
         }
     }
@@ -188,7 +200,8 @@ class ThemeController extends Controller
     public function changeTheme($theme = null)
     {
         if ($theme !== null && $this->themes->findDescription($theme) === null) {
-            return redirect()->route('admin.themes.index')->with('error', trans('admin.themes.invalid'));
+            return redirect()->route('admin.themes.index')
+                ->with('error', trans('admin.themes.invalid'));
         }
 
         if ($theme !== null && $this->themes->isLegacy($theme)) {
@@ -200,6 +213,20 @@ class ThemeController extends Controller
 
         ActionLog::log('themes.changed');
 
-        return redirect()->route('admin.themes.index')->with('success', trans('admin.themes.updated'));
+        return redirect()->route('admin.themes.index')
+            ->with('success', trans('admin.themes.updated'));
+    }
+
+    protected static function appendConfig(array $config, array $replacement)
+    {
+        foreach ($replacement as $key => $value) {
+            if (is_array($value)) {
+                $config[$key] = static::appendConfig($config[$key], $value);
+            } else {
+                $config[$key] = $value;
+            }
+        }
+
+        return $config;
     }
 }

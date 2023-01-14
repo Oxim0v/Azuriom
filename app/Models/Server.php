@@ -75,7 +75,7 @@ class Server extends Model
     /**
      * Get the commands waiting to be dispatch on this server.
      *
-     * Currently this should only be use for servers using AzLink.
+     * Currently, this should only be use for servers using AzLink.
      */
     public function commands()
     {
@@ -126,12 +126,23 @@ class Server extends Model
     {
         Cache::put('servers.'.$this->id, $data, now()->addMinutes(5));
 
-        if ($data !== null && $full && ! $this->stats()->where('created_at', '>=', now()->subMinutes(10))->exists()) {
-            $stats = Arr::except($data, 'max_players');
-            $statsData = ['data' => array_filter(Arr::except($stats, ['players', 'cpu', 'ram']))];
-
-            $this->stats()->create(array_merge(Arr::only($stats, ['players', 'cpu', 'ram']), $statsData));
+        if ($data === null || ! $full) {
+            return;
         }
+
+        if ($this->stats()->where('created_at', '>=', now()->subMinutes(10))->exists()) {
+            return;
+        }
+
+        $statsData = Arr::except($data, ['players', 'max_players', 'cpu', 'ram']);
+
+        if (is_numeric($tps = Arr::get($statsData, 'tps'))) {
+            $statsData['tps'] = round($tps, 2);
+        }
+
+        $this->stats()->create(array_merge([
+            'data' => array_filter($statsData),
+        ], Arr::only($data, ['players', 'cpu', 'ram'])));
     }
 
     public function getData(string $key = null)
@@ -159,7 +170,22 @@ class Server extends Model
 
     public function getLinkCommand()
     {
-        return '/azlink setup '.url('/').' '.$this->token;
+        $base = $this->type === 'mc-azlink'
+            ? '/azlink setup '.url('/')
+            : 'azlink:setup '.str_replace([':', '/'], ['!', '|'], url('/'));
+
+        return $base.' '.$this->token;
+    }
+
+    public function playersRecord(bool $force = false)
+    {
+        if ($force) {
+            return $this->stats()->max('players');
+        }
+
+        return Cache::remember('servers.record.'.$this->id, now()->addHour(), function () {
+            return $this->playersRecord(true);
+        });
     }
 
     public static function types()
@@ -190,6 +216,6 @@ class Server extends Model
      */
     public function scopePingable(Builder $query)
     {
-        return $query->where('type', '<>', 'mc-azlink');
+        return $query->whereNotIn('type', ['mc-azlink', 'steam-azlink']);
     }
 }

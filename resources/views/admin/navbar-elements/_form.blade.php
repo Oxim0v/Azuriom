@@ -1,16 +1,32 @@
 @csrf
 
 <div class="row g-3">
-    <div class="mb-3 col-md-6">
+    <div class="mb-3 col-md-4">
         <label class="form-label" for="nameInput">{{ trans('messages.fields.name') }}</label>
-        <input type="text" class="form-control @error('name') is-invalid @enderror" id="nameInput" name="name" value="{{ (string) old('name', $navbarElement->name ?? '') }}" required>
+        <input type="text" class="form-control @error('name') is-invalid @enderror" id="nameInput" name="name" value="{{ old('name', $navbarElement->raw_name ?? '') }}" required>
 
         @error('name')
         <span class="invalid-feedback" role="alert"><strong>{{ $message }}</strong></span>
         @enderror
     </div>
 
-    <div class="mb-3 col-md-6">
+    <div class="mb-3 col-md-4">
+        <label class="form-label" for="iconInput">{{ trans('messages.fields.icon') }}</label>
+
+        <div class="input-group @error('icon') has-validation @enderror">
+            <span class="input-group-text"><i class="{{ $navbarElement->icon ?? 'bi bi-house' }}"></i></span>
+
+            <input type="text" class="form-control @error('icon') is-invalid @enderror" id="iconInput" name="icon" value="{{ old('icon', $navbarElement->icon ?? '') }}" placeholder="bi bi-house" aria-labelledby="iconLabel">
+
+            @error('icon')
+            <span class="invalid-feedback" role="alert"><strong>{{ $message }}</strong></span>
+            @enderror
+        </div>
+
+        <small id="iconLabel" class="form-text">@lang('messages.icons')</small>
+    </div>
+
+    <div class="mb-3 col-md-4">
         <label class="form-label" for="typeSelect">{{ trans('messages.fields.type') }}</label>
         <select class="form-select @error('type') is-invalid @enderror" id="typeSelect" name="type" required v-model="type">
             @foreach($types as $type)
@@ -77,13 +93,13 @@
 </div>
 
 <div class="mb-3 form-check form-switch">
-    <input type="checkbox" class="form-check-input" id="newTabSwitch" name="new_tab" @if($navbarElement->new_tab ?? false) checked @endif>
-    <label class="form-check-label" for="newTabSwitch">{{ trans('admin.navbar_elements.fields.new-tab') }}</label>
+    <input type="checkbox" class="form-check-input" id="newTabSwitch" name="new_tab" @checked($navbarElement->new_tab ?? false)>
+    <label class="form-check-label" for="newTabSwitch">{{ trans('admin.navbar_elements.fields.new_tab') }}</label>
 </div>
 
 <div class="mb-3 mb-2">
     <div class="form-check form-switch">
-        <input type="checkbox" class="form-check-input" id="restrictedSwitch" name="restricted" data-bs-toggle="collapse" data-bs-target="#rolesGroup" @if(isset($navbarElement) && $navbarElement->isRestricted()) checked @endif aria-describedby="adminInfo">
+        <input type="checkbox" class="form-check-input" id="restrictedSwitch" name="restricted" data-bs-toggle="collapse" data-bs-target="#rolesGroup" @checked(isset($navbarElement) && $navbarElement->isRestricted())>
         <label class="form-check-label" for="restrictedSwitch">{{ trans('admin.navbar_elements.restrict') }}</label>
     </div>
 </div>
@@ -94,7 +110,7 @@
             @foreach($roles as $role)
                 <div class="col-lg-3 col-md-4 col-sm-6">
                     <div class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" id="role{{ $role->id }}" name="roles[]" value="{{ $role->id }}" @if(in_array($role->id, old('roles', isset($navbarElement) ? $navbarElement->roles->modelKeys() : []), true)) checked @endif>
+                        <input type="checkbox" class="form-check-input" id="role{{ $role->id }}" name="roles[]" value="{{ $role->id }}" @checked(in_array($role->id, old('roles', isset($navbarElement) ? $navbarElement->roles->modelKeys() : []), true))>
                         <label class="form-check-label" for="role{{ $role->id }}">{{ $role->name }}</label>
                     </div>
                 </div>
